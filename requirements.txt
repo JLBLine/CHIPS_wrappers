@@ -1,0 +1,7 @@
+numpy
+argparse
+matplotlib
+mpl_toolkits
+warnings
+astropy
+subprocess
