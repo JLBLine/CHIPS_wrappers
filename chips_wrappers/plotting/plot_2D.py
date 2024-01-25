@@ -8,6 +8,7 @@ import warnings
 import matplotlib as mpl
 import sys
 from matplotlib.colors import LogNorm, Normalize
+# plt.rcParams.update({'font.size': 24})
 
 def save_or_plot(fig, output_plot_name, plot_mode):
     """Either save the figure to the given file name `output_plot_name`,
@@ -133,7 +134,8 @@ def create_positives_cmap(args, set_under_colour=False):
 
     # ticks = [10**tick for tick in np.arange(lower, upper + 1, 2)]
     ticks = [tick for tick in np.arange(lower, upper + 1, 2)]
-    labels = ["1e+{:d}".format(int(tick)) for tick in ticks]
+    # labels = ["1e+{:d}".format(int(tick)) for tick in ticks]
+    labels = ["10$^{{{:d}}}$".format(int(tick)) for tick in ticks]
 
     norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
 
@@ -162,10 +164,12 @@ def do_2D_axes_labels(ax, title, polarisation,
     ax.set_yscale("log")
 
 def plot_2D_on_ax(twoD_ps_array, extent, ax, fig, polarisation,
-                  args, hide_cbar_label=False, hide_k_par_label=False, hide_k_perp_label=False):
+                  chips_data, hide_cbar_label=False, hide_k_par_label=False, hide_k_perp_label=False):
     """Plot the 2D PS data in `twoD_ps_array`, which covers the kper/k_par
     coords in `extent`, on the axes `ax` on figure `fig`. Uses a single
     cmap"""
+    
+    args = chips_data.parser_args
 
     if args.colourscale == "negs_are_grey":
         cmap, norm, ticks, ticklabels = create_positives_cmap(args, "Grey")
@@ -184,18 +188,17 @@ def plot_2D_on_ax(twoD_ps_array, extent, ax, fig, polarisation,
         warnings.filterwarnings("ignore", category=RuntimeWarning,
             message="divide by zero encountered in log10")
 
-
         im = ax.imshow(np.log10(twoD_ps_array), cmap=cmap, origin='lower',
                        norm=norm, aspect='auto', extent=extent,
                        interpolation='none')
-
+        
     ##Append a smaller axis to plot the colourbar on
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.15)
 
     cb = fig.colorbar(im, cax=cax, format='%.0e',extend='both',
                       ticks=ticks)
-    cb.ax.set_yticklabels(ticklabels)
+    cb.ax.set_yticklabels(ticklabels, fontsize=14)
 
     if not hide_cbar_label:
         if args.plot_type == '2D_Ratio_Diff' or args.plot_type == '2D_ratio_diff':
@@ -208,6 +211,11 @@ def plot_2D_on_ax(twoD_ps_array, extent, ax, fig, polarisation,
         cax.text(1.13, 0.01, '$\leq0$', horizontalalignment='center',
                 verticalalignment='center', transform=ax.transAxes,
                 fontsize=11)
+        
+    chips_data.get_horizon_and_beam_lines()
+    
+    ax.plot(chips_data.kper, chips_data.line_beam, color='k', linestyle='--', linewidth=1)
+    ax.plot(chips_data.kper, chips_data.line_horiz, color='k', linestyle='-', linewidth=1)
 
     do_2D_axes_labels(ax, 'Crosspower', polarisation, hide_cbar_label, hide_k_par_label, hide_k_perp_label)
 
@@ -448,7 +456,7 @@ def do_2D_plot(chips_data):
         else:
 
             fig, ax = plt.subplots(1,1,figsize=(6,7))
-            plot_2D_on_ax(twoD_ps_array, extent, ax, fig, chips_data.parser_args.polarisation, chips_data.parser_args)
+            plot_2D_on_ax(twoD_ps_array, extent, ax, fig, chips_data.parser_args.polarisation, chips_data)
             plt.tight_layout()
 
         output_plot_name = f"{chips_data.parser_args.outputdir}/chips2D_{chips_data.parser_args.polarisation}_{chips_data.parser_args.chips_tag}_crosspower.png"
@@ -478,9 +486,9 @@ def do_2D_plot(chips_data):
 
         else:
             fig, axs = plt.subplots(1,2,figsize=(12,7))
-            plot_2D_on_ax(twoD_ps_array_xx, extent_xx, axs[0], fig, 'xx', chips_data.parser_args,
+            plot_2D_on_ax(twoD_ps_array_xx, extent_xx, axs[0], fig, 'xx', chips_data,
                           hide_cbar_label=True)
-            plot_2D_on_ax(twoD_ps_array_yy, extent_yy, axs[1], fig, 'yy', chips_data.parser_args,
+            plot_2D_on_ax(twoD_ps_array_yy, extent_yy, axs[1], fig, 'yy', chips_data,
                           hide_k_perp_label=True)
 
             plt.tight_layout()
@@ -757,10 +765,10 @@ def do_2D_ratio_diff_plot(chips_data):
 
         else:
             fig, axs = plt.subplots(1,3,figsize=(18,7))
-            plot_2D_on_ax(frac_1, extent, axs[0], fig, pol, chips_data.parser_args, hide_cbar_label=True, hide_k_par_label=False, hide_k_perp_label=False)
+            plot_2D_on_ax(frac_1, extent, axs[0], fig, pol, chips_data, hide_cbar_label=True, hide_k_par_label=False, hide_k_perp_label=False)
             do_2D_axes_labels(axs[0], label1, pol, hide_cbar_label=False,hide_k_par_label=False, hide_k_perp_label=False)
 
-            plot_2D_on_ax(frac_2, extent, axs[1], fig, pol, chips_data.parser_args, hide_cbar_label=False, hide_k_par_label=False, hide_k_perp_label=True)
+            plot_2D_on_ax(frac_2, extent, axs[1], fig, pol, chips_data, hide_cbar_label=False, hide_k_par_label=False, hide_k_perp_label=True)
             do_2D_axes_labels(axs[1], label2, pol, hide_cbar_label=False,hide_k_par_label=True, hide_k_perp_label=False)
 
             plot_2D_ratio_on_ax(ratio_diff, extent, axs[2], fig, pol, chips_data.parser_args, hide_cbar_label=False, hide_k_par_label=False, hide_k_perp_label=True)
@@ -828,18 +836,18 @@ def do_2D_ratio_diff_plot(chips_data):
         else:
             fig, axs = plt.subplots(2,3,figsize=(18,13))
 
-            plot_2D_on_ax(frac_1_xx, extent_xx, axs[0, 0], fig, 'xx', chips_data.parser_args, hide_cbar_label=True, hide_k_par_label=True, hide_k_perp_label=False)
+            plot_2D_on_ax(frac_1_xx, extent_xx, axs[0, 0], fig, 'xx', chips_data, hide_cbar_label=True, hide_k_par_label=True, hide_k_perp_label=False)
             do_2D_axes_labels(axs[0, 0], label1, 'xx', hide_cbar_label=True,hide_k_par_label=True, hide_k_perp_label=False)
 
-            plot_2D_on_ax(frac_2_xx, extent_xx, axs[0, 1], fig, 'xx', chips_data.parser_args, hide_cbar_label=False, hide_k_par_label=True, hide_k_perp_label=True)
+            plot_2D_on_ax(frac_2_xx, extent_xx, axs[0, 1], fig, 'xx', chips_data, hide_cbar_label=False, hide_k_par_label=True, hide_k_perp_label=True)
             do_2D_axes_labels(axs[0, 1], label2, 'xx', hide_cbar_label=False,hide_k_par_label=True, hide_k_perp_label=True)
 
             plot_2D_ratio_on_ax(ratio_diff_xx, extent_xx, axs[0, 2], fig, 'xx', chips_data.parser_args, hide_cbar_label=False, hide_k_par_label=True, hide_k_perp_label=True)
 
-            plot_2D_on_ax(frac_1_yy, extent_yy, axs[1, 0], fig, 'yy', chips_data.parser_args, hide_cbar_label=True, hide_k_par_label=False, hide_k_perp_label=False)
+            plot_2D_on_ax(frac_1_yy, extent_yy, axs[1, 0], fig, 'yy', chips_data, hide_cbar_label=True, hide_k_par_label=False, hide_k_perp_label=False)
             do_2D_axes_labels(axs[1, 0], label1, 'yy', hide_cbar_label=True,hide_k_par_label=False, hide_k_perp_label=False)
 
-            plot_2D_on_ax(frac_2_yy, extent_yy, axs[1, 1], fig, 'yy', chips_data.parser_args, hide_cbar_label=False, hide_k_par_label=False, hide_k_perp_label=True)
+            plot_2D_on_ax(frac_2_yy, extent_yy, axs[1, 1], fig, 'yy', chips_data, hide_cbar_label=False, hide_k_par_label=False, hide_k_perp_label=True)
             do_2D_axes_labels(axs[1, 1], label2, 'yy', hide_cbar_label=False,hide_k_par_label=False, hide_k_perp_label=True)
 
             plot_2D_ratio_on_ax(ratio_diff_yy, extent_yy, axs[1, 2], fig, 'yy', chips_data.parser_args, hide_cbar_label=False, hide_k_par_label=False, hide_k_perp_label=True)

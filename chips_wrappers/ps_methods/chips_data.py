@@ -71,11 +71,13 @@ class ChipsDataProducts(object):
                               Ode0=self.parser_args.omega_lambda,
                               Ob0=self.parser_args.omega_baryon)
 
-        print('Cosmology being used has the following parameters:')
-        print(f"\tH0 = {cosmology.H0:.2f}")
-        print(f"\tOmega Matter = {cosmology.Om0:.4f}")
-        print(f"\tOmega Lambda = {cosmology.Ode0:.4f}")
-        print(f"\tOmega Baryon = {cosmology.Ob0:.4f}")
+        if self.parser_args.verbose:
+
+            print('Cosmology being used has the following parameters:')
+            print(f"\tH0 = {cosmology.H0:.2f}")
+            print(f"\tOmega Matter = {cosmology.Om0:.4f}")
+            print(f"\tOmega Lambda = {cosmology.Ode0:.4f}")
+            print(f"\tOmega Baryon = {cosmology.Ob0:.4f}")
 
         nu_21 = (SPEED_LIGHT)/(WAVELENGTH_21CM) #[Hz]
 
@@ -170,23 +172,26 @@ class ChipsDataProducts(object):
             if parser_args.density_correction == 'use_fit':
                 self.decoherence_factor = "use_fit"
             else:
-                self.decoherence_factor = 2.0  
+                self.decoherence_factor = float(parser_args.density_correction)  
         else:
         
             self.decoherence_factor = 1.0
+            
+        if parser_args.verbose:
 
-        print("Params either set or calculated:")
-        print(f"\tCentral wavelength (m) {cent_wavelength:.3f}")
-        print(f"\tDM {self.DM:.1f}", )
-        print(f"\tHubble_distance {self.hubble_distance}")
-        print(f"\tBandwidth {bandwidth:.5e}")
-        print(f"\tredshift {z:.3f}")
-        print(f"\tNum freq chan {parser_args.N_chan}")
-        print(f"\tEz", self.Ez)
+            print("Params either set or calculated:")
+            print(f"\tCentral wavelength (m) {cent_wavelength:.3f}")
+            print(f"\tDM {self.DM:.1f}", )
+            print(f"\tHubble_distance {self.hubble_distance}")
+            print(f"\tBandwidth {bandwidth:.5e}")
+            print(f"\tredshift {z:.3f}")
+            print(f"\tNum freq chan {parser_args.N_chan}")
+            print(f"\tEz", self.Ez)
+            print(f"\tGridding normalisation", self.decoherence_factor)
 
-        print(f"OVERALL NORMALISATION APPLIED (without decoherence):  {self.normalisation:.8e}")
+            print(f"OVERALL NORMALISATION APPLIED (without decoherence):  {self.normalisation:.8e}")
 
-        if parser_args.wedge_factor > 0:
+        if parser_args.wedge_factor >= 0:
             self.wedge_factor = parser_args.wedge_factor
         else:
             ##Used to do the wedge cut for 1D
@@ -203,8 +208,6 @@ class ChipsDataProducts(object):
             ##reshape into 2D using the parser arguments
             
             N_chans_present = int(len(data) / self.parser_args.N_kperp)
-            
-            print('THIS THIS', N_chans_present)
             
             ##Ok so this can happen if performing a masked FFT in newer versions of CHIPS
             ##You get get less eta channels out, but of the same resolution. The overal
@@ -238,7 +241,7 @@ class ChipsDataProducts(object):
             
         return data
     
-    def _8s_decoherence_factor(self, weights):
+    def _8s_decoherence_factor(self, k_perp_mesh):
         """
         Calculates the decoherence factor for a given set of weights, using the 8s model
         as fit in Line et at. 2023 in prep
@@ -256,35 +259,17 @@ class ChipsDataProducts(object):
             in the input array.
         """
         
-        a_2 = 0.0
+        a_1 = 0.0
+        delta = 0.01
+        A = 0.377280447218
+        a_2 = -0.161193559625
+        x_b = 0.064354113566
         
-        # x_b2 = 1e-4
-        # A = 0.42785868
-        # a_1 = 0.09304295
-        # delta = 0.1
-        
-        # x_b2 = 5e-5
-        # A = 0.42292658
-        # a_1 = 0.09611348
-        # delta = 0.05
-        
-        # x_b2 = 1e-4
-        # A = 0.40248888
-        # a_1 = 0.09304295
-        # delta = 0.05
-        
-        x_b2 = 2e-4
-        delta = 0.05
-        A = 0.41365943
-        a_1 = 0.07786576
-        
-        
-        
-        output = A*(weights/x_b2)**(-a_1) * (0.5*(1+(weights/x_b2)**(1/delta)))**((a_1-a_2)*delta)
-        output[np.where(output > 1.0)] = 1.0
+        output = A*(k_perp_mesh/x_b)**(-a_1) * (0.5*(1+(k_perp_mesh/x_b)**(1/delta)))**((a_1-a_2)*delta)
+        output[output > 1.0] = 1.0
         
         return 1 / output
-
+    
     def _read_in_data_and_convert(self, polarisation, chips_tag=False, oneD=False):
         """Attempt to read in the data based on user provided paths and polarisation
         options. Will first check for files that have had kriging (have a zero
@@ -355,13 +340,17 @@ class ChipsDataProducts(object):
         self.weight_data = weights/(self.normalisation)**2*weight_scheme*np.sqrt(self.parser_args.N_chan)
         
         if self.decoherence_factor == 'use_fit':
-            self.decoherence_factor = self._8s_decoherence_factor(weights)
+            k_perp_mesh, k_parr_mesh = np.meshgrid(self.kper, self.kpa)
+            self.decoherence_factor = self._8s_decoherence_factor(k_perp_mesh)
             
         self.weight_data /= self.decoherence_factor
         
         self.crosspower = crosspower*self.decoherence_factor*self.normalisation
         
-        print(f"Max power in file {self.crosspower.max():.4e}")
+        if self.parser_args.verbose:
+            print(f"Max power in file {self.crosspower.max():.4e}")
+        
+        self.weights = weights
 
         np.savez("2D_coords_and_power.npz", k_perp=self.kper,
                                             k_parr=self.kpa,
@@ -394,8 +383,8 @@ class ChipsDataProducts(object):
         k_lengths_mesh = np.sqrt(k_perp_mesh**2 + k_parr_mesh**2)
 
         ##This does the wedge cut?
-        wedge_cut = k_parr_mesh > k_perp_mesh*self.wedge_factor
-
+        wedge_cut = k_parr_mesh > (0.5*np.pi)*k_perp_mesh*self.wedge_factor
+        
         ##Cuts off in k perpendicular, avoids small spatial scales in the 1D
         k_perp_cut = k_perp_mesh <= self.parser_args.kperp_max
 
@@ -416,6 +405,9 @@ class ChipsDataProducts(object):
         oneD_power = np.zeros(int(num_ktot_bins))
         oneD_delta = np.zeros(int(num_ktot_bins))
         oneD_weights = np.zeros(int(num_ktot_bins))
+        
+        oneD_power_std = np.zeros(int(num_ktot_bins))
+        self.bin_count = np.zeros(int(num_ktot_bins))
         ##Keep track of the locations of the bins on the 2D PS if we want to
         ##plot the wedge cut
         binning_array = np.ones(twoD_data.shape)*-1.0
@@ -434,18 +426,43 @@ class ChipsDataProducts(object):
                 warnings.filterwarnings("ignore", category=UserWarning,
                     message="Warning: converting a masked element to nan.")
 
-                oneD_delta[k_tot_ind] = np.nansum(twoD_data[cut_inds]*twoD_weights_sqrt[cut_inds]**2*k_lengths_mesh[cut_inds]**3)
-                oneD_weights[k_tot_ind] = np.nansum(twoD_weights_sqrt[cut_inds]**2)
-
-                oneD_power[k_tot_ind] = np.nansum(twoD_data[cut_inds]*twoD_weights_sqrt[cut_inds]**2)
-
+                # oneD_delta[k_tot_ind] = np.nansum(twoD_data[cut_inds]*twoD_weights_sqrt[cut_inds]**2*k_lengths_mesh[cut_inds]**3)
+                # oneD_weights[k_tot_ind] = np.nansum(twoD_weights_sqrt[cut_inds]**2)
+                # oneD_power[k_tot_ind] = np.nansum(twoD_data[cut_inds]*twoD_weights_sqrt[cut_inds]**2)
+                # oneD_power_std[k_tot_ind] = np.nanstd(twoD_data[cut_inds])
+                
+                oneD_delta[k_tot_ind] = np.nansum(twoD_data[cut_inds]*twoD_weights[cut_inds]*k_lengths_mesh[cut_inds]**3)
+                oneD_weights[k_tot_ind] = np.nansum(twoD_weights[cut_inds])
+                oneD_power[k_tot_ind] = np.nansum(twoD_data[cut_inds]*twoD_weights[cut_inds])
+                
+                weight_mean = oneD_power[k_tot_ind] / oneD_weights[k_tot_ind]
+                
+                
+                # normed_weights = twoD_weights[cut_inds] / np.nansum(twoD_weights[cut_inds]) 
+                
+                normed_weights = twoD_weights[cut_inds]
+                
+                if np.nansum(normed_weights) == 0.0:
+                    pass
+                else:
+                
+                
+                    ##weighted sample variance
+                    oneD_power_std[k_tot_ind] = np.nansum(normed_weights*(twoD_data[cut_inds] - weight_mean)**2) / np.nansum(normed_weights)
+                
+                self.bin_count[k_tot_ind] = int(cut_inds[0].size)
+                
             binning_array[cut_inds] = k_tot_ind + 1
+            
+        
 
         self.binning_array = binning_array
+        # self.twoD_weights
 
         oneD_power = oneD_power / oneD_weights
         oneD_delta = oneD_delta / oneD_weights
-
+        oneD_power_std = np.sqrt(oneD_power_std)
+        
         ##Which sigma to report the noise to
         sigma = 2
         sqrt_weights = np.ones(len(oneD_weights))
@@ -457,6 +474,8 @@ class ChipsDataProducts(object):
         oneD_noise = oneD_noise*ktot_bins**3 / (2*np.pi**2)
         
         # np.save("oneD_weights.npy", oneD_weights)
+        
+        self.oneD_power_std = oneD_power_std
 
         return ktot_bins, oneD_noise, oneD_power, oneD_delta
 
@@ -490,3 +509,20 @@ class ChipsDataProducts(object):
             plot_wedge_cut(self)
 
         return ktot_bins, oneD_noise, oneD_power, oneD_delta
+    
+    def get_horizon_and_beam_lines(self):
+        """Calculates the horizon line and primary beam line for plotting on"""
+        
+        grad_horiz = 0.5*np.pi # Horizon cut gradient.
+        # grad_horiz = 1 # Horizon cut gradient.
+        
+        ##say a tile is like 4.5 metres across, FoV is lambda/D
+        beam_width = (SPEED_LIGHT / self.central_freq) / 4.5
+        grad_beam = beam_width # Beam FoV cut.
+        # wedge_cut = grad*polySpectra.wedge_factor(self.z,self.cosmo)
+        
+        line_beam = grad_beam*self.wedge_factor*self.kper
+        line_horiz = grad_horiz*self.wedge_factor*self.kper
+        
+        self.line_beam = line_beam
+        self.line_horiz = line_horiz

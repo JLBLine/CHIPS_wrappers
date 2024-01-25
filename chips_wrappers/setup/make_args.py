@@ -3,6 +3,8 @@ import argparse
 import shlex
 from copy import deepcopy
 
+SCALAR_DENSITY_CORRECTION = 2.6505481727808022
+
 def get_args(argv=None):
     """Parse command line arugments using argparse. Returns the args"""
     
@@ -91,7 +93,7 @@ def get_args(argv=None):
     plot_group_1D = parser.add_argument_group('1D PLOTTING OPTIONS')
     plot_group_1D.add_argument("--no_noise", default=False, action='store_true',
         help="By default, thermal noise is plotted. Add this to switch it off")
-    plot_group_1D.add_argument("--wedge_factor", default=False, type=float,
+    plot_group_1D.add_argument("--wedge_factor", default=-1, type=float,
         help="The scaling factor between k_parrallel and k_perpendicular" \
              "to use during cut. Defaults to the horizon")
     plot_group_1D.add_argument("--plot_delta", default=False, action='store_true',
@@ -153,10 +155,13 @@ def get_args(argv=None):
     #     help="Time resolution of data (s). Default = 8")
     chips_group.add_argument("--umax", default=300., type=float,
         help="Maximum u-value used in 'fft_thermal' stage (wavelengths). Default = 300")
-    chips_group.add_argument("--density_correction", default=2,
+    chips_group.add_argument("--density_correction", default=SCALAR_DENSITY_CORRECTION,
         help="Density correction to correct for decoherence. Defaults to factor 2 "
         "based on Barry et al. 2019a (Appendix A). Enter 0 for no correction, "
         "or 'use_fit' to use the fit from Line et al in prep")
+    chips_group.add_argument("--num_obs", default=1, type=int,
+        help="Total number of observations integrated by CHIPS, used in conjunction "
+        "with --density_correction='use_fit'. Defaults to 1.")
 
     plot_group_1D.add_argument("--RTS_outputs", default=False,
         action='store_true',
@@ -177,6 +182,7 @@ def get_args(argv=None):
     args = parser.parse_args()
 
     args.Neta = int(args.N_chan/2)
+    args.verbose = True
 
     ##If people like the caps, let them eat cake
     if args.polarisation == 'XX': args.polarisation = 'xx'
@@ -218,10 +224,20 @@ class FakeArgs(object):
         self.omega_lambda = None
         self.hubble = None
         self.Neta = None
-        self.wedge_factor = 0.0
+        self.wedge_factor = -1.0
         self.basedir = None
         self.RTS_outputs = False
         self.max_1D_kmode = 20
-        self.kperp_max = None
-        self.density_correction = False
+        self.kperp_max = 20
+        self.kperp_min = 0
+        self.kparra_min = 0
         self.plot_wedge_cut_2D = False
+        self.plot_type = '2D'
+        self.max_power = 1e+13
+        self.min_power = 1e+3
+        self.num_k_edges = 31
+        self.ktot_bin_edges = False
+        self.low_k_edge = 1e-3
+        self.high_k_edge = 30
+        self.density_correction = SCALAR_DENSITY_CORRECTION
+        self.verbose = True
