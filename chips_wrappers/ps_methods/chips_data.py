@@ -396,6 +396,8 @@ class ChipsDataProducts(object):
 
         nozero_per = k_perp_mesh > 0.0
         nozero_par = k_parr_mesh > 0.0
+        
+        only_pos = twoD_data > 0.0
 
         ##Find the centre of all the bins as the gridding coords
         ktot_bins = (ktot_bin_edges[1:] + ktot_bin_edges[:-1])/2
@@ -417,8 +419,8 @@ class ChipsDataProducts(object):
             above_min = k_lengths_mesh > ktot_bin_edges[k_tot_ind]
             below_max = k_lengths_mesh <= ktot_bin_edges[k_tot_ind + 1]
 
-            # cut_inds = np.where(above_min & below_max & wedge_cut & k_perp_cut & nozero_par & nozero_per)
             cut_inds = np.where(above_min & below_max & wedge_cut & k_perp_cut & nozero_par & nozero_per & kparra_cut & k_perp_cut_min)
+            # cut_inds = np.where(above_min & below_max & wedge_cut & k_perp_cut & nozero_par & nozero_per & kparra_cut & k_perp_cut_min & only_pos)
 
             ##Always get annoying warnnging that a Masked element has been set
             ##to NaN here, so ignore them

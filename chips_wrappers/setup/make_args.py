@@ -241,3 +241,8 @@ class FakeArgs(object):
         self.high_k_edge = 30
         self.density_correction = SCALAR_DENSITY_CORRECTION
         self.verbose = True
+        
+        self.omega_matter=0.272
+        self.omega_baryon=0.046
+        self.omega_lambda=0.7
+        self.hubble=70.4
