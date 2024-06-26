@@ -290,7 +290,7 @@ class ChipsDataProducts(object):
         
         file_found = False
         ##Try various running option numbers, and stop if we find valid files
-        for run_opt in [0, 1, 20, 21, 22]:
+        for run_opt in [0, 1, 10, 20, 21, 22]:
             kriging = run_opt
             filename = f"{self.parser_args.basedir}/crosspower_{polarisation}_{kriging}.iter.{chips_tag}.dat"
             

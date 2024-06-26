@@ -1,7 +1,4 @@
-numpy
+numpy>=1.19.5
 argparse
-matplotlib
-mpl_toolkits
-warnings
-astropy
-subprocess
+matplotlib>=3.6.3
+astropy>=4.2
