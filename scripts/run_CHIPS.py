@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 from __future__ import print_function
-from numpy import *
+
+import argparse
+import os
 # from subprocess import call,check_output
 import subprocess as sbp
-from sys import exit
-from os import environ,getcwd
+from os import environ, getcwd
 from os.path import exists
-import os
-import argparse
+from sys import exit
+
 from astropy.io import fits
+from numpy import *
+
 
 def read_env_variables(filename):
     '''Reads the environment variables stored in the
@@ -72,6 +75,10 @@ def write_cluster_specifics(outfile, args):
         #outfile.write('module load openblas/0.2.20\n')
         #outfile.write('module load gcc/6.4.0 openmpi/3.0.0\n\n')
         outfile.write('source /fred/oz048/jline/software/chips/module_load_chips.sh\n')
+    if args.cluster == 'nt':
+        outfile.write('#SBATCH --account=oz048\n\n')
+        outfile.write('module use /fred/oz048/achokshi/software/modulefiles\n')
+        outfile.write('module load chips/master\n\n')
     elif args.cluster == 'garrawarla':
         outfile.write('#SBATCH --partition=workq\n')
         outfile.write('#SBATCH --account=mwaeor\n\n')
@@ -435,6 +442,8 @@ def make_lssa(pol=None, output_log_dir=None, args=None):
 
         if args.cluster == 'garrawarla':
             command2 = "${CODEDIR}/fft_thermal"
+        elif args.cluster == 'nt':
+            command2 = "${CODEDIR}/lssa_fg_thermal"
         else:
             command2 = "${CODEDIR}/lssa_fg_simple"
 
@@ -476,7 +485,7 @@ def get_parser():
 
     parser.add_argument('--cluster', default='garrawarla',
                         help='Which cluster is being used. Default is garrawarla. ' \
-                        'Current clusters: ozstar, garrawarla')
+                        'Current clusters: ozstar, nt, garrawarla')
     parser.add_argument('--data_dir', default=False,
                         help='If data does not live in generic /MWA/data dir, ' \
                         'enter the base directory here. Script will search for ' \
@@ -750,7 +759,6 @@ if __name__ == '__main__':
         
         ##If a list of direct paths exist, use those
         if args.direct_path_list:
-            print("Made it here")
             print(args.direct_path_list[obs_ind])
             grid_job = make_grid_sbatch_singleuvfits(obs=obs,
                             output_log_dir=output_log_dir,
