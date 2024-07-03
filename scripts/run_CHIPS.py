@@ -364,7 +364,7 @@ def write_clean_script(args, output_log_dir, no_delete_log=False):
     outfile.write('#SBATCH --cpus-per-task=1\n')
     outfile.write('#SBATCH --output=clean_{:s}.%j.out\n'.format(args.chips_tag))
     outfile.write('#SBATCH --error=clean_{:s}.%j.err\n'.format(args.chips_tag))
-    outfile.write('#SBATCH --mem=30000\n')
+    outfile.write('#SBATCH --mem=4000\n')
 
     ##Write lines specific to each cluster
     write_cluster_specifics(outfile, args)
@@ -401,7 +401,7 @@ def make_lssa(pol=None, output_log_dir=None, args=None):
     outfile.write('#SBATCH --cpus-per-task={:d}\n'.format(args.lssa_cores))
     outfile.write('#SBATCH --output=lssa_{:s}_{:s}.%j.out\n'.format(args.chips_tag, pol))
     outfile.write('#SBATCH --error=lssa_{:s}_{:s}.%j.err\n'.format(args.chips_tag, pol))
-    outfile.write('#SBATCH --mem=30000\n')
+    outfile.write('#SBATCH --mem=36000\n')
 
     ##Write lines specific to each cluster
     write_cluster_specifics(outfile, args)
@@ -455,11 +455,11 @@ def make_lssa(pol=None, output_log_dir=None, args=None):
         krig = 0
 
     ##In the commnand below, 80 is the number of k bins, and 300 is the maximum uv value to grid up to
-    cmd1 = "srun --mem=30000 --export=ALL {:s} {:s} {:d} 0 '{:s}' {:s} {:d}"\
+    cmd1 = "srun --mem=36000 --export=ALL {:s} {:s} {:d} 0 '{:s}' {:s} {:d}"\
                " -c {:.5f} -p {:.3f}".format(command1, args.chips_tag, num_chans,
                pol, args.chips_tag, band_num, args.freqres, args.timeres)
     
-    cmd2 = "srun --mem=30000 --export=ALL {:s} {:s} {:d} 80 '{:s}' 300. {:s} {:d}"\
+    cmd2 = "srun --mem=36000 --export=ALL {:s} {:s} {:d} 80 '{:s}' 300. {:s} {:d}"\
                 " {:d} 0 -c {:.5f} -p {:.3f}".format(command2, args.chips_tag,
                 num_chans, pol, args.chips_tag, krig, band_num, args.freqres,
                 args.timeres)
