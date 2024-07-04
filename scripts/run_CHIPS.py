@@ -302,7 +302,7 @@ def make_grid_sbatch_singleuvfits(obs=None, output_log_dir=None, args=None,
     outfile.write('#!/bin/bash\n')
     outfile.write('#SBATCH --job-name="grid_{:s}_{:s}"\n'.format(obsname,args.chips_tag))
     outfile.write('#SBATCH --export=NONE\n')
-    outfile.write('#SBATCH --time=01:00:00\n')
+    outfile.write('#SBATCH --time=01:20:00\n')
     outfile.write('#SBATCH --nodes=1\n')
     outfile.write('#SBATCH --cpus-per-task=36\n')
     outfile.write('#SBATCH --output=grid_{:s}_{:s}_%A_%a.out\n'.format(obsname,args.chips_tag))
