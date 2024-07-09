@@ -433,7 +433,7 @@ class ChipsDataProducts(object):
                 # oneD_power[k_tot_ind] = np.nansum(twoD_data[cut_inds]*twoD_weights_sqrt[cut_inds]**2)
                 # oneD_power_std[k_tot_ind] = np.nanstd(twoD_data[cut_inds])
                 
-                oneD_delta[k_tot_ind] = np.nansum(twoD_data[cut_inds]*twoD_weights[cut_inds]*k_lengths_mesh[cut_inds]**3)
+                oneD_delta[k_tot_ind] = np.nansum(twoD_data[cut_inds]*twoD_weights[cut_inds])#*k_lengths_mesh[cut_inds]**3)
                 oneD_weights[k_tot_ind] = np.nansum(twoD_weights[cut_inds])
                 oneD_power[k_tot_ind] = np.nansum(twoD_data[cut_inds]*twoD_weights[cut_inds])
                 
@@ -472,7 +472,7 @@ class ChipsDataProducts(object):
         oneD_noise = sigma / sqrt_weights
 
         ##Convert to delta
-        oneD_delta = oneD_delta / (2*np.pi**2)
+        oneD_delta = oneD_delta*ktot_bins**3 / (2*np.pi**2)
         oneD_noise = oneD_noise*ktot_bins**3 / (2*np.pi**2)
         
         # np.save("oneD_weights.npy", oneD_weights)

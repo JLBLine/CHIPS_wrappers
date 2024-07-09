@@ -3,7 +3,7 @@ import argparse
 import shlex
 from copy import deepcopy
 
-SCALAR_DENSITY_CORRECTION = 2.6505481727808022
+SCALAR_DENSITY_CORRECTION = 2.08704581 # adjust normalization of density correction to match 10mK noise simulation
 
 def get_args(argv=None):
     """Parse command line arugments using argparse. Returns the args"""
@@ -181,6 +181,7 @@ def get_args(argv=None):
 
     args = parser.parse_args()
 
+    args.omega_lambda = 1 - args.omega_matter - args.omega_baryon # \Omega_\lamda + \Omega_b + \Omega_m = 1
     args.Neta = int(args.N_chan/2)
     args.verbose = True
 
