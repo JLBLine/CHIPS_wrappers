@@ -60,7 +60,7 @@ class ChipsDataProducts(object):
         k_z : numpy array, float
             1Darray of kz values. Should be in units of h*Mpc^-1.
         """
-        
+
         ##TODO allow the user to select a default astropy cosmology like Planck18
         # from astropy.cosmology import Planck18
         # cosmology = Planck18
@@ -109,7 +109,7 @@ class ChipsDataProducts(object):
         like setting up coordinates and DMs and things.
 
         There are many cosmological things here that I do not understand"""
-        
+
         parser_args = self.parser_args
 
         self.central_freq = parser_args.lowerfreq + int(parser_args.N_chan / 2)*parser_args.chan_width
@@ -167,16 +167,16 @@ class ChipsDataProducts(object):
         ##Gridding causes decohence due to the grid points not being
         ##infite. Must multiply by this factor
         ##This is a density factor correction based on Barry et al 2019.
-        
+
         if parser_args.density_correction:
             if parser_args.density_correction == 'use_fit':
                 self.decoherence_factor = "use_fit"
             else:
-                self.decoherence_factor = float(parser_args.density_correction)  
+                self.decoherence_factor = float(parser_args.density_correction)
         else:
-        
+
             self.decoherence_factor = 1.0
-            
+
         if parser_args.verbose:
 
             print("Params either set or calculated:")
@@ -206,23 +206,23 @@ class ChipsDataProducts(object):
             data = np.fromfile(train_xf, dtype=np.float32)
             ##Make 2D - data were written out by spatial direction, then spectral,
             ##reshape into 2D using the parser arguments
-            
+
             N_chans_present = int(len(data) / self.parser_args.N_kperp)
-            
+
             ##Ok so this can happen if performing a masked FFT in newer versions of CHIPS
             ##You get get less eta channels out, but of the same resolution. The overal
             ##frequency bandwith should be the same though, so keep N_chan alive to
             ##propagate through the rest of the code
             if N_chans_present != self.parser_args.N_chan:
                 print(f'Number of eta channels {N_chans_present} in file is not full N_chan {self.parser_args.N_chan} (assuming that number k_perp chans is {self.parser_args.N_kperp} as set by --N_kperp)')
-                
+
                 ##Known drop in number of channels from 384 to 336 when using nfft
                 expec_ratio = 384 / 336
-                
+
                 print(f'If this is an nfft format file, would expect {self.parser_args.N_chan / expec_ratio}')
-                
+
                 self.parser_args.Neta = int(N_chans_present / 2)
-            
+
             # data = np.reshape(data, (self.parser_args.N_kperp,self.parser_args.N_chan))
             data = np.reshape(data, (self.parser_args.N_kperp, N_chans_present))
 
@@ -238,38 +238,38 @@ class ChipsDataProducts(object):
 
             ##There are some bins that always get ignored so throw them away now
             data = data[:-KPARRA_END, KPERP_START:]
-            
+
         return data
-    
+
     def _8s_decoherence_factor(self, k_perp_mesh):
         """
         Calculates the decoherence factor for a given set of weights, using the 8s model
         as fit in Line et at. 2023 in prep
-        
+
         Parameters
         -----------
         weights : np.ndarray
             An array of weights out of CHIPS (from file
             e.g. crosspower_xx_0.iter.{chips_tag}.dat )
-            
+
         Returns
         --------
         correction : np.ndarray:
             An array of corrections for decoherence factors, one for each weight
             in the input array.
         """
-        
+
         a_1 = 0.0
         delta = 0.01
         A = 0.377280447218
         a_2 = -0.161193559625
         x_b = 0.064354113566
-        
+
         output = A*(k_perp_mesh/x_b)**(-a_1) * (0.5*(1+(k_perp_mesh/x_b)**(1/delta)))**((a_1-a_2)*delta)
         output[output > 1.0] = 1.0
-        
+
         return 1 / output
-    
+
     def _read_in_data_and_convert(self, polarisation, chips_tag=False, oneD=False):
         """Attempt to read in the data based on user provided paths and polarisation
         options. Will first check for files that have had kriging (have a zero
@@ -287,19 +287,22 @@ class ChipsDataProducts(object):
             chips_tag = self.parser_args.chips_tag
 
         # filename0 = f"{self.parser_args.basedir}crosspower_{polarisation}_0.iter.{chips_tag}.dat"
-        
+
         file_found = False
         ##Try various running option numbers, and stop if we find valid files
-        for run_opt in [0, 1, 10, 20, 21, 22]:
+        run_opts = np.arange(0, 23)
+        if self.parser_args.bias_mode != -1:
+            run_opts = [self.parser_args.bias_mode]
+        for run_opt in run_opts:
             kriging = run_opt
             filename = f"{self.parser_args.basedir}/crosspower_{polarisation}_{kriging}.iter.{chips_tag}.dat"
-            
+
             # filename = f"{self.parser_args.basedir}totpower_{polarisation}_{kriging}.iter.{chips_tag}.dat"
-            
+
             if os.path.isfile(filename):
                 file_found = True
                 break
-        
+
         if not file_found:
             msg = 'Could not open crosspower files based in input params.\n' \
             'Searched for files like :\n' \
@@ -338,25 +341,25 @@ class ChipsDataProducts(object):
             weight_scheme = 1
 
         self.weight_data = weights/(self.normalisation)**2*weight_scheme*np.sqrt(self.parser_args.N_chan)
-        
+
         if self.decoherence_factor == 'use_fit':
             k_perp_mesh, k_parr_mesh = np.meshgrid(self.kper, self.kpa)
             self.decoherence_factor = self._8s_decoherence_factor(k_perp_mesh)
-            
+
         self.weight_data /= self.decoherence_factor
-        
+
         self.crosspower = crosspower*self.decoherence_factor*self.normalisation
-        
+
         if self.parser_args.verbose:
             print(f"Max power in file {self.crosspower.max():.4e}")
-        
+
         self.weights = weights
 
         np.savez("2D_coords_and_power.npz", k_perp=self.kper,
                                             k_parr=self.kpa,
                                             twoD_power=self.crosspower,
                                             weights=weights)
-        
+
     def read_data_and_create_2Darray(self, polarisation, chips_tag=False):
         """Attempt to read in the data based on user provided paths and polarisation
         options. Will first check for files that have had kriging (have a zero
@@ -384,7 +387,7 @@ class ChipsDataProducts(object):
 
         ##This does the wedge cut?
         wedge_cut = k_parr_mesh > (0.5*np.pi)*k_perp_mesh*self.wedge_factor
-        
+
         ##Cuts off in k perpendicular, avoids small spatial scales in the 1D
         k_perp_cut = k_perp_mesh <= self.parser_args.kperp_max
 
@@ -396,7 +399,7 @@ class ChipsDataProducts(object):
 
         nozero_per = k_perp_mesh > 0.0
         nozero_par = k_parr_mesh > 0.0
-        
+
         only_pos = twoD_data > 0.0
 
         ##Find the centre of all the bins as the gridding coords
@@ -407,7 +410,7 @@ class ChipsDataProducts(object):
         oneD_power = np.zeros(int(num_ktot_bins))
         oneD_delta = np.zeros(int(num_ktot_bins))
         oneD_weights = np.zeros(int(num_ktot_bins))
-        
+
         oneD_power_std = np.zeros(int(num_ktot_bins))
         self.bin_count = np.zeros(int(num_ktot_bins))
         ##Keep track of the locations of the bins on the 2D PS if we want to
@@ -432,31 +435,31 @@ class ChipsDataProducts(object):
                 # oneD_weights[k_tot_ind] = np.nansum(twoD_weights_sqrt[cut_inds]**2)
                 # oneD_power[k_tot_ind] = np.nansum(twoD_data[cut_inds]*twoD_weights_sqrt[cut_inds]**2)
                 # oneD_power_std[k_tot_ind] = np.nanstd(twoD_data[cut_inds])
-                
+
                 oneD_delta[k_tot_ind] = np.nansum(twoD_data[cut_inds]*twoD_weights[cut_inds])#*k_lengths_mesh[cut_inds]**3)
                 oneD_weights[k_tot_ind] = np.nansum(twoD_weights[cut_inds])
                 oneD_power[k_tot_ind] = np.nansum(twoD_data[cut_inds]*twoD_weights[cut_inds])
-                
+
                 weight_mean = oneD_power[k_tot_ind] / oneD_weights[k_tot_ind]
-                
-                
-                # normed_weights = twoD_weights[cut_inds] / np.nansum(twoD_weights[cut_inds]) 
-                
+
+
+                # normed_weights = twoD_weights[cut_inds] / np.nansum(twoD_weights[cut_inds])
+
                 normed_weights = twoD_weights[cut_inds]
-                
+
                 if np.nansum(normed_weights) == 0.0:
                     pass
                 else:
-                
-                
+
+
                     ##weighted sample variance
                     oneD_power_std[k_tot_ind] = np.nansum(normed_weights*(twoD_data[cut_inds] - weight_mean)**2) / np.nansum(normed_weights)
-                
+
                 self.bin_count[k_tot_ind] = int(cut_inds[0].size)
-                
+
             binning_array[cut_inds] = k_tot_ind + 1
-            
-        
+
+
 
         self.binning_array = binning_array
         # self.twoD_weights
@@ -464,7 +467,7 @@ class ChipsDataProducts(object):
         oneD_power = oneD_power / oneD_weights
         oneD_delta = oneD_delta / oneD_weights
         oneD_power_std = np.sqrt(oneD_power_std)
-        
+
         ##Which sigma to report the noise to
         sigma = 2
         sqrt_weights = np.ones(len(oneD_weights))
@@ -474,9 +477,9 @@ class ChipsDataProducts(object):
         ##Convert to delta
         oneD_delta = oneD_delta*ktot_bins**3 / (2*np.pi**2)
         oneD_noise = oneD_noise*ktot_bins**3 / (2*np.pi**2)
-        
+
         # np.save("oneD_weights.npy", oneD_weights)
-        
+
         self.oneD_power_std = oneD_power_std
 
         return ktot_bins, oneD_noise, oneD_power, oneD_delta
@@ -511,20 +514,20 @@ class ChipsDataProducts(object):
             plot_wedge_cut(self)
 
         return ktot_bins, oneD_noise, oneD_power, oneD_delta
-    
+
     def get_horizon_and_beam_lines(self):
         """Calculates the horizon line and primary beam line for plotting on"""
-        
+
         grad_horiz = 0.5*np.pi # Horizon cut gradient.
         # grad_horiz = 1 # Horizon cut gradient.
-        
+
         ##say a tile is like 4.5 metres across, FoV is lambda/D
         beam_width = (SPEED_LIGHT / self.central_freq) / 4.5
         grad_beam = beam_width # Beam FoV cut.
         # wedge_cut = grad*polySpectra.wedge_factor(self.z,self.cosmo)
-        
+
         line_beam = grad_beam*self.wedge_factor*self.kper
         line_horiz = grad_horiz*self.wedge_factor*self.kper
-        
+
         self.line_beam = line_beam
         self.line_horiz = line_horiz
