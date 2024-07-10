@@ -49,6 +49,7 @@ def save_1D(oneD_k_modes, oneD_power_measured, oneD_delta_measured,
     df = pd.DataFrame({
         'k_modes': oneD_k_modes[notzero],
         'delta': oneD_delta_measured[notzero],
+        'sqrt_delta': np.sqrt(oneD_delta_measured[notzero]),
         'power': oneD_power_measured[notzero],
         'noise': oneD_delta_2sig_noise[notzero],
     })
@@ -73,7 +74,7 @@ def do_1D_save(chips_data):
         save_1D(oneD_k_modes, oneD_power_measured, oneD_delta_measured, oneD_delta_2sig_noise, pol=pol, delta=args.plot_delta)
 
 if __name__ == '__main__':
-    
+
     args = make_args.get_args()
     print(vars(args))
     ptypes = [args.plot_type]
