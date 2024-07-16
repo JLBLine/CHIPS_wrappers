@@ -48,7 +48,7 @@ def check_env_variables():
         except KeyError:
             exit("CHIPS environment variable {%s} is missing. Things will go wrong without it so exiting now".format(env))
 
-def write_sbatch_exports(outfile, args):
+def write_sbatch_exports(outfile, args, use_jobfs=False):
     """Write necessary exports to a text file - for Garrawarla, this is done
     via a module load, so can be skipped"""
 
@@ -60,10 +60,15 @@ def write_sbatch_exports(outfile, args):
         outfile.write('export BEAMDIR={:s}\n'.format(environ['BEAMDIR']))
         # outfile.write('export PBSDIR={:s}\n\n'.format(environ['PBSDIR']))
 
-    ##Override defaults with optional args (these point to defaults if
-    ##nothing was supplied by user)
     outfile.write('export INPUTDIR={:s}\n'.format(args.data_dir))
-    outfile.write('export OUTPUTDIR={:s}\n'.format(args.output_dir))
+
+    if use_jobfs and args.jobfs and args.cluster == 'nt':
+        outfile.write('export FREDOUTPUTDIR={:s}\n'.format(args.output_dir))
+        outfile.write('export OUTPUTDIR=${JOBFS}/chips_out/\n')
+    else:
+        ##Override defaults with optional args (these point to defaults if
+        ##nothing was supplied by user)
+        outfile.write('export OUTPUTDIR={:s}\n'.format(args.output_dir))
 
 def write_cluster_specifics(outfile, args):
     """Write any necessary module loads and path file funnies that are specific
@@ -304,7 +309,11 @@ def make_grid_sbatch_singleuvfits(obs=None, output_log_dir=None, args=None,
     outfile.write('#SBATCH --export=NONE\n')
     outfile.write('#SBATCH --time=01:20:00\n')
     outfile.write('#SBATCH --nodes=1\n')
-    outfile.write('#SBATCH --cpus-per-task=36\n')
+    if args.jobfs and args.cluster == 'nt':
+        outfile.write('#SBATCH --cpus-per-task=8\n')
+        outfile.write('#SBATCH --tmp=96GB\n')
+    else:
+        outfile.write('#SBATCH --cpus-per-task=36\n')
     outfile.write('#SBATCH --output=grid_{:s}_{:s}_%A_%a.out\n'.format(obsname,args.chips_tag))
     outfile.write('#SBATCH --error=grid_{:s}_{:s}_%A_%a.err\n'.format(obsname,args.chips_tag))
     outfile.write('#SBATCH --mem=30000\n')
@@ -314,9 +323,12 @@ def make_grid_sbatch_singleuvfits(obs=None, output_log_dir=None, args=None,
     write_cluster_specifics(outfile, args)
 
     ##If the cluster has no 'module load', write out some paths explicitly
-    write_sbatch_exports(outfile, args)
+    if args.jobfs and args.cluster == 'nt':
+        write_sbatch_exports(outfile, args, use_jobfs=True)
+    else:
+        write_sbatch_exports(outfile, args)
 
-    outfile.write('export OMP_NUM_THREADS=36\n')
+    outfile.write('export OMP_NUM_THREADS=36\n\n')
     # outfile.write('GPUBOXN=$(printf "%02d" "$SLURM_ARRAY_TASK_ID")\n\n')
 
     ##Setup the correct arguments to the CHIPS commands
@@ -336,6 +348,12 @@ def make_grid_sbatch_singleuvfits(obs=None, output_log_dir=None, args=None,
             else:
                 command = "${CODEDIR}/gridvisdiff"
 
+    if args.cluster == 'nt':
+        outfile.write('mkdir -p ${OUTPUTDIR}\n')
+        outfile.write('cp ${TEMPLATE_CHIPS_OUT}/*.dat ${OUTPUTDIR}\n')
+        if args.jobfs:
+            outfile.write('mkdir -p ${FREDOUTPUTDIR}\n')
+
     cmd = f'srun --mem=30000 --export=ALL {command} '\
           f'{uvfits_path} '\
           f'{obsname} {args.chips_tag} {band_num} -f {args.field} '\
@@ -348,7 +366,10 @@ def make_grid_sbatch_singleuvfits(obs=None, output_log_dir=None, args=None,
         ##need it if running bands 12-24 for example
         cmd += ' -n {:.5f}'.format(args.low_freq*1e+6)
 
-    outfile.write(cmd + '\n')
+    outfile.write('\n' + cmd + '\n')
+
+    if args.jobfs and args.cluster == 'nt':
+        outfile.write('\nmv ${OUTPUTDIR}/* ${FREDOUTPUTDIR}\n')
 
     return 'run_grid_{:s}_{:s}.sh'.format(obsname, args.chips_tag)
 
@@ -381,10 +402,10 @@ def write_clean_script(args, output_log_dir, no_delete_log=False):
     if no_delete_log:
         pass
     else:
-        outfile.write('rm {:s}/grid*{:s}*.out\n'.format(output_log_dir, args.chips_tag))
-        outfile.write('rm {:s}/grid*{:s}*.err\n'.format(output_log_dir, args.chips_tag))
-        outfile.write('rm {:s}/lssa_{:s}*.out\n'.format(output_log_dir, args.chips_tag))
-        outfile.write('rm {:s}/lssa_{:s}*.out\n'.format(output_log_dir, args.chips_tag))
+        outfile.write('rm grid*{:s}*.out\n'.format(args.chips_tag))
+        outfile.write('rm grid*{:s}*.err\n'.format(args.chips_tag))
+        outfile.write('rm lssa_{:s}*.out\n'.format(args.chips_tag))
+        outfile.write('rm lssa_{:s}*.out\n'.format(args.chips_tag))
         #outfile.write('rm {:s}/*clean_{:s}*\n'.format(cwd, args.chips_tag))
 
     return 'run_clean_{:s}.sh'.format(args.chips_tag)
@@ -486,6 +507,9 @@ def get_parser():
     parser.add_argument('--cluster', default='garrawarla',
                         help='Which cluster is being used. Default is garrawarla. ' \
                         'Current clusters: ozstar, nt, garrawarla')
+    parser.add_argument('--jobfs', action='store_true',
+                        help='Use the fast $JOBFS local storage on the nt cluster ' \
+                        'during gridding. Uses 4x less cores in the same time.')
     parser.add_argument('--data_dir', default=False,
                         help='If data does not live in generic /MWA/data dir, ' \
                         'enter the base directory here. Script will search for ' \
@@ -583,6 +607,7 @@ def check_args(args):
 
     ##Get optional arguments
     cluster = args.cluster
+    jobfs = args.jobfs
     debug = args.debug
     uvfits_tag = args.uvfits_tag
     no_delete_log = args.no_delete_log
@@ -671,6 +696,13 @@ def check_args(args):
 
     if args.single_uvfits:
         if args.single_uvfits[-7:] != ".uvfits": args.single_uvfits += ".uvfits"
+
+    # The jobfs flag can only be used on the nt cluster - check this
+    if jobfs:
+        if cluster == 'nt':
+            pass
+        else:
+            exit('The --jobfs flag can only be used on the nt cluster - please check your inputs. Exiting')
 
     return args
 
