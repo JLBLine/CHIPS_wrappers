@@ -60,15 +60,15 @@ setup(
     'chips_wrappers.ps_methods',
     'chips_wrappers.run_chips',
     'chips_wrappers.setup'],
-    
+
     scripts=["scripts/plotchips_all.py",
              "scripts/chips1D_tsv.py",
              "scripts/run_CHIPS.py",],
-    # package_data={"wodenpy" : ["libwoden_float.so",
-    #                            "libwoden_double.so",
-    #                            'wodenpy_gitinfo.npz',
-    #                            'bandpass_1kHz.txt']},
-    # cmdclass={'gitinfo': GitInfo,
-    #           'build_py': BuildPyCommand,
-    #           },
+    install_requires=[
+        "numpy",
+        "matplotlib",
+        "pandas",
+        "scipy",
+        "astropy",
+    ],
 )

@@ -1,2 +1,4 @@
 *.egg-info
+.cache/*
 *__pycache__*
+dist/**.egg-info

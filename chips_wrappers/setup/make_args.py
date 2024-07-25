@@ -3,11 +3,11 @@ import argparse
 import shlex
 from copy import deepcopy
 
-SCALAR_DENSITY_CORRECTION = 2.6505481727808022
+SCALAR_DENSITY_CORRECTION = 2.08704581 # adjust normalization of density correction to match 10mK noise simulation
 
 def get_args(argv=None):
     """Parse command line arugments using argparse. Returns the args"""
-    
+
     if argv:
         ##user wants a specific set of args
         pass
@@ -159,6 +159,8 @@ def get_args(argv=None):
         help="Density correction to correct for decoherence. Defaults to factor 2 "
         "based on Barry et al. 2019a (Appendix A). Enter 0 for no correction, "
         "or 'use_fit' to use the fit from Line et al in prep")
+    chips_group.add_argument("--bias_mode", default=-1, type=int,
+        help="Bias mode used in CHIPS. Default = try all modes")
     chips_group.add_argument("--num_obs", default=1, type=int,
         help="Total number of observations integrated by CHIPS, used in conjunction "
         "with --density_correction='use_fit'. Defaults to 1.")
@@ -181,6 +183,7 @@ def get_args(argv=None):
 
     args = parser.parse_args()
 
+    args.omega_lambda = 1 - args.omega_matter - args.omega_baryon # \Omega_\lamda + \Omega_b + \Omega_m = 1
     args.Neta = int(args.N_chan/2)
     args.verbose = True
 
@@ -193,9 +196,9 @@ def get_args(argv=None):
 def check_args(args):
     """Given the inputs, check some certain values and make sure things make
     sense. Also auto-populate some values that will be useful later
-    
+
     TODO so so many more sanity checks are needed"""
-    
+
     if args.plot_type in ['2D_ratio_diff', '2D_Ratio_Diff', '2D_ratio',
                           '2D_Ratio', '2D_diff', '2D_Diff', '1D_comp', '1D_Comp']:
         if args.chips_tag_one_label and args.chips_tag_two_label:
@@ -204,10 +207,10 @@ def check_args(args):
         else:
             args.out_label1 = deepcopy(args.chips_tag_one).replace(' ', '_')
             args.out_label2 = deepcopy(args.chips_tag_two).replace(' ', '_')
-            
+
     return args
-    
-    
+
+
 
 class FakeArgs(object):
     """When not using argparse, use this object instead which can be called
@@ -241,7 +244,7 @@ class FakeArgs(object):
         self.high_k_edge = 30
         self.density_correction = SCALAR_DENSITY_CORRECTION
         self.verbose = True
-        
+
         self.omega_matter=0.272
         self.omega_baryon=0.046
         self.omega_lambda=0.7
