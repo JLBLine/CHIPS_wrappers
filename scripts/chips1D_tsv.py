@@ -41,40 +41,72 @@ import sys
 import numpy as np
 import pandas as pd
 
-def save_1D(oneD_k_modes, oneD_power_measured, oneD_delta_measured,
-            oneD_delta_2sig_noise, pol, delta=False):
+
+def save_1D(
+    oneD_k_modes,
+    oneD_power_measured,
+    oneD_delta_measured,
+    oneD_delta_2sig_noise,
+    pol_ext,
+    debug_message=None,
+):
     """Save everything to a tsv file"""
 
     notzero = np.where(oneD_k_modes != 0)
-    df = pd.DataFrame({
-        'k_modes': oneD_k_modes[notzero],
-        'delta': oneD_delta_measured[notzero],
-        'power': oneD_power_measured[notzero],
-        'noise': oneD_delta_2sig_noise[notzero],
-    })
-    filename=f"1D_power_{pol}.tsv"
+    df = pd.DataFrame(
+        {
+            "k_modes": oneD_k_modes[notzero],
+            "delta": oneD_delta_measured[notzero],
+            "sqrt_delta": np.sqrt(oneD_delta_measured[notzero]),
+            "power": oneD_power_measured[notzero],
+            "noise": oneD_delta_2sig_noise[notzero],
+        }
+    )
+    filename = f"1D_power_{pol_ext}.tsv"
     print(f"saving to {filename}")
-    df.to_csv(f"1D_power_{pol}.tsv", index=False, sep=chr(9))
+    df.to_csv(filename, index=False, sep=chr(9), float_format="%15.3f")
+    if debug_message is not None:
+        with open(filename, "a") as f:
+            f.write(f'\n"# {debug_message}"')
+
 
 def do_1D_save(chips_data):
     args = chips_data.parser_args
 
-    if args.polarisation == 'xx' or args.polarisation == 'yy':
+    if args.polarisation == "xx" or args.polarisation == "yy":
         pols = [args.polarisation]
-    elif args.polarisation == 'both':
+    elif args.polarisation == "both":
         pols = ["xx", "yy"]
     else:
-        msg = f'--polarisation={args.polarisation} is not a valid argument{chr(10)}'
-        'Must be one of either: xx, yy, both'
+        msg = f"--polarisation={args.polarisation} is not a valid argument{chr(10)}"
+        "Must be one of either: xx, yy, both"
         sys.exit(msg)
-    ##Read in data and convert to a 1D array for plotting
+    ##Read in data and convert to a 1D array for plotting # noqa: E265
     for pol in pols:
-        oneD_k_modes, oneD_delta_2sig_noise, oneD_power_measured, oneD_delta_measured = chips_data.read_data_and_create_1Darray(pol)
-        save_1D(oneD_k_modes, oneD_power_measured, oneD_delta_measured, oneD_delta_2sig_noise, pol=pol, delta=args.plot_delta)
+        pol_ext = f"{pol}"
+        if args.bias_mode is not None and args.bias_mode >= 0:
+            pol_ext = f"{pol_ext}_{args.bias_mode}"
+        if args.chips_tag is not None:
+            pol_ext = f"{pol_ext}.{args.chips_tag}"
+        (
+            oneD_k_modes,
+            oneD_delta_2sig_noise,
+            oneD_power_measured,
+            oneD_delta_measured,
+        ) = chips_data.read_data_and_create_1Darray(pol)
+        save_1D(
+            oneD_k_modes,
+            oneD_power_measured,
+            oneD_delta_measured,
+            oneD_delta_2sig_noise,
+            pol_ext=pol_ext,
+            debug_message=chips_data.get_chips_debug_message(),
+        )
 
-if __name__ == '__main__':
-    
-    args = make_args.get_args()
+
+if __name__ == "__main__":
+
+    args = make_args.get_args(include_plot=False)
     print(vars(args))
     ptypes = [args.plot_type]
     chips_data = ChipsDataProducts(args)

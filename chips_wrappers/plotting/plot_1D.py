@@ -28,7 +28,7 @@ def plot_1D_on_ax(ax, oneD_k_modes, oneD_power_measured, oneD_delta_measured,
                color=colour_power, marker=marker_power, mfc='none', ms=4,
                label=f'{pol_label}Power')
         ax.set_ylabel(r'$\Delta$ (mK$^2$)', fontsize=16)
-        
+
         if noise:
             ax.plot(plot_k_modes, plot_noise, linestyle='--',
                 color=colour_power, label=f'{pol_label}Noise')
@@ -36,11 +36,11 @@ def plot_1D_on_ax(ax, oneD_k_modes, oneD_power_measured, oneD_delta_measured,
         ax.plot(plot_k_modes, plot_power, drawstyle='steps-mid',
                color=colour_power, marker=marker_power, mfc='none', ms=4,
                label=f'{pol_label}Power')
-        
+
         if noise:
             ax.plot(plot_k_modes, (plot_noise*2*np.pi**2)/plot_k_modes**3, linestyle='--',
                 color=colour_power, label=f'{pol_label}Noise')
-        
+
         ax.set_ylabel(r'P(k) mK$^2$ $h^{-3}$ Mpc$^3$',fontsize=16)
 
     np.savez_compressed(f"1D_power_{pol}.npz", k_modes=plot_k_modes, power=plot_power,
@@ -97,7 +97,7 @@ def do_1D_plot(chips_data):
                               noise=not(chips_data.parser_args.no_noise))
 
         plot_1D_on_ax(axs[1], oneD_k_modes_yy, oneD_power_measured_yy,
-                              oneD_delta_measured_xx, oneD_delta_2sig_noise_yy,
+                              oneD_delta_measured_yy, oneD_delta_2sig_noise_yy,
                               chips_data.parser_args.min_power, chips_data.parser_args.max_power,
                               "yy", delta=chips_data.parser_args.plot_delta,
                               noise=not(chips_data.parser_args.no_noise))

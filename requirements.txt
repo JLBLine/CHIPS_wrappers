@@ -2,3 +2,4 @@ numpy>=1.19.5
 argparse
 matplotlib>=3.6.3
 astropy>=4.2
+pandas

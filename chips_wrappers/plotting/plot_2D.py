@@ -103,13 +103,23 @@ def plot_wedge_cut(self):
     print("Saving wedgecut_2D.png")
     fig.savefig('wedgecut_2D.png',bbox_inches='tight')
     plt.close()
-    
 
 def create_positives_cmap(args, set_under_colour=False):
     """Sets up a colourmap (cmap) with a log10 normalisation based on the input
     arguments. Optionally, sets anything under zero to a specific colour"""
-    ##Setup up a bespoke colour map
-    cmap = mpl.cm.get_cmap("Spectral_r").copy()
+    # Version-agnostic way to get colormap that works on any matplotlib version
+    try:
+        # Try the new way first (matplotlib >= 3.6)
+        import matplotlib.pyplot as plt
+        cmap = plt.get_cmap("Spectral_r").copy()
+    except AttributeError:
+        try:
+            # Try the colormaps registry (matplotlib >= 3.5)
+            import matplotlib.colormaps as cm
+            cmap = cm.get_cmap("Spectral_r").copy()
+        except (ImportError, AttributeError):
+            # Fall back to the old way (matplotlib < 3.6)
+            cmap = mpl.cm.get_cmap("Spectral_r").copy()
 
     if args.plot_type == '2D_Ratio_Diff' or args.plot_type == '2D_ratio_diff':
         upper = np.ceil(np.log10(args.max_power_r))
@@ -168,7 +178,7 @@ def plot_2D_on_ax(twoD_ps_array, extent, ax, fig, polarisation,
     """Plot the 2D PS data in `twoD_ps_array`, which covers the kper/k_par
     coords in `extent`, on the axes `ax` on figure `fig`. Uses a single
     cmap"""
-    
+
     args = chips_data.parser_args
 
     if args.colourscale == "negs_are_grey":
@@ -191,7 +201,7 @@ def plot_2D_on_ax(twoD_ps_array, extent, ax, fig, polarisation,
         im = ax.imshow(np.log10(twoD_ps_array), cmap=cmap, origin='lower',
                        norm=norm, aspect='auto', extent=extent,
                        interpolation='none')
-        
+
     ##Append a smaller axis to plot the colourbar on
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.15)
@@ -211,13 +221,19 @@ def plot_2D_on_ax(twoD_ps_array, extent, ax, fig, polarisation,
         cax.text(1.13, 0.01, '$\leq0$', horizontalalignment='center',
                 verticalalignment='center', transform=ax.transAxes,
                 fontsize=11)
-        
+
     chips_data.get_horizon_and_beam_lines()
-    
+
     ax.plot(chips_data.kper, chips_data.line_beam, color='k', linestyle='--', linewidth=1)
     ax.plot(chips_data.kper, chips_data.line_horiz, color='k', linestyle='-', linewidth=1)
 
-    do_2D_axes_labels(ax, 'Crosspower', polarisation, hide_cbar_label, hide_k_par_label, hide_k_perp_label)
+    title = 'Crosspower'
+    if args.chips_tag_label:
+        title += f'\n{args.chips_tag_label}'
+    elif args.chips_tag:
+        title += f'\n{args.chips_tag}'
+
+    do_2D_axes_labels(ax, title, polarisation, hide_cbar_label, hide_k_par_label, hide_k_perp_label)
 
 def plot_2D_on_ax_two_colour_bars(twoD_ps_array, extent, ax, fig, cax_pos,
                   cax_neg, polarisation, args, title, cmap='PurpOrang',
@@ -578,11 +594,11 @@ def do_2D_ratio_plot(chips_data):
         plot_2D_ratio_on_ax(twoD_ps_ratio_array,
                             extent, ax, fig, chips_data.parser_args.polarisation, chips_data.parser_args)
         plt.tight_layout()
-        
+
         output_plot_name = f"{chips_data.parser_args.outputdir}/chips2D_{chips_data.parser_args.polarisation}_" \
                             f"{chips_data.parser_args.out_label1}_" \
                             f"{chips_data.parser_args.out_label2}_ratio.png"
-            
+
 
     elif chips_data.parser_args.polarisation == 'both':
         fig, axs = plt.subplots(1,2,figsize=(12,7))
@@ -600,7 +616,7 @@ def do_2D_ratio_plot(chips_data):
                             extent, axs[1], fig, 'yy', chips_data.parser_args, hide_k_perp_label=True)
 
         plt.tight_layout()
-        
+
         output_plot_name = f"{chips_data.parser_args.outputdir}/chips2D_xx+yy_" \
                         f"{chips_data.parser_args.out_label1}_" \
                         f"{chips_data.parser_args.out_label2}_ratio.png"
@@ -628,7 +644,7 @@ def make_2D_diff(chips_data, polarisation):
 
 def do_2D_diff_plot(chips_data):
     """Given the user supplied `args`, plot a 2D power spectrum ratio"""
-    
+
     args = chips_data.parser_args
 
     if chips_data.parser_args.max_power == 0.0:
@@ -655,7 +671,7 @@ def do_2D_diff_plot(chips_data):
         plot_2D_on_ax_two_colour_bars(twoD_ps_diff_array, extent, ax, fig,
                             cax_pos, cax_neg, chips_data.parser_args.polarisation, args,
                             title, cmap='BlueRed')
-        
+
         output_plot_name = f"{chips_data.parser_args.outputdir}/chips2D_{chips_data.parser_args.polarisation}_" \
                         f"{chips_data.parser_args.out_label1}_" \
                         f"{chips_data.parser_args.out_label2}_diff.png"
@@ -698,7 +714,7 @@ def do_2D_diff_plot(chips_data):
 def make_2D_ratio_diff(chips_data, polarisation):
     """Using input user arguments `args`, make a 2D Ratio array for the given
     `polarisation`"""
-    
+
     args = chips_data.parser_args
 
     twoD_ps_array, extent = chips_data.read_data_and_create_2Darray(polarisation,
@@ -726,22 +742,22 @@ def do_2D_ratio_diff_plot(chips_data):
         ##Read in data and convert to a 2D array for plotting
         frac_1, frac_2, ratio_diff, extent =  make_2D_ratio_diff(chips_data, pol)
 
-        
+
         if chips_data.parser_args.chips_tag_one_label and chips_data.parser_args.chips_tag_two_label and chips_data.parser_args.chips_tag_label:
-        
+
             chips_tag = deepcopy(chips_data.parser_args.chips_tag_label)
             chips_tag_one = deepcopy(chips_data.parser_args.chips_tag_one_label)
             chips_tag_two = deepcopy(chips_data.parser_args.chips_tag_two_label)
-            
+
         else:
-            
+
             chips_tag = deepcopy(chips_data.parser_args.chips_tag)
             chips_tag_one = deepcopy(chips_data.parser_args.chips_tag_one)
             chips_tag_two = deepcopy(chips_data.parser_args.chips_tag_two)
-        
+
         label1 = rf' R1 = $\frac{{{chips_tag_one.replace("_", "ˍ")+" - "+chips_tag.replace("_", "ˍ")}}}{{{chips_tag.replace("_", "ˍ")}}}$'
         label2 = rf' R2 = $\frac{{{chips_tag_two.replace("_", "ˍ")+" - "+chips_tag.replace("_", "ˍ")}}}{{{chips_tag.replace("_", "ˍ")}}}$'
-        
+
         if chips_data.parser_args.colourscale == 'pos_and_negs':
             fig = plt.figure(figsize=(18,7))
             ax_cx_0, ax_cx_1, ax_cx_2 = setup_ax_and_cax_for_double_colourbar_ratio_diff(fig, pol)
@@ -754,7 +770,7 @@ def do_2D_ratio_diff_plot(chips_data):
                                 ax_cx_1[0], fig, ax_cx_1[1], ax_cx_1[2], pol, chips_data.parser_args,
                                 label2, hide_cbar_label=False, hide_k_par_label=True, hide_k_perp_label=True)
 
-            plot_2D_on_ax_two_colour_bars(ratio_diff, extent, 
+            plot_2D_on_ax_two_colour_bars(ratio_diff, extent,
                                 ax_cx_2[0], fig, ax_cx_2[1], ax_cx_2[2], pol, chips_data.parser_args,
                                 'Ratio-Difference (R2-R1)', cmap='BlueRed', hide_cbar_label=False, hide_k_par_label=True, hide_k_perp_label=True)
 
@@ -773,7 +789,7 @@ def do_2D_ratio_diff_plot(chips_data):
 
             plot_2D_ratio_on_ax(ratio_diff, extent, axs[2], fig, pol, chips_data.parser_args, hide_cbar_label=False, hide_k_par_label=False, hide_k_perp_label=True)
             plt.tight_layout()
-            
+
             output_plot_name = f"{chips_data.parser_args.outputdir}/chips2D_{pol}_"\
                             f"{chips_data.parser_args.chips_tag}_"\
                             f"{chips_data.parser_args.out_label1}_"\
@@ -786,17 +802,17 @@ def do_2D_ratio_diff_plot(chips_data):
         frac_1_yy, frac_2_yy, ratio_diff_yy, extent_yy =  make_2D_ratio_diff(chips_data, 'yy')
 
         if chips_data.parser_args.chips_tag_one_label and chips_data.parser_args.chips_tag_two_label and chips_data.parser_args.chips_tag_label:
-        
+
             chips_tag = deepcopy(chips_data.parser_args.chips_tag_label)
             chips_tag_one = deepcopy(chips_data.parser_args.chips_tag_one_label)
             chips_tag_two = deepcopy(chips_data.parser_args.chips_tag_two_label)
-            
+
         else:
-            
+
             chips_tag = deepcopy(chips_data.parser_args.chips_tag)
             chips_tag_one = deepcopy(chips_data.parser_args.chips_tag_one)
             chips_tag_two = deepcopy(chips_data.parser_args.chips_tag_two)
-        
+
         label1 = rf' R1 = $\frac{{{chips_tag_one.replace("_", "ˍ")+" - "+chips_tag.replace("_", "ˍ")}}}{{{chips_tag.replace("_", "ˍ")}}}$'
         label2 = rf' R2 = $\frac{{{chips_tag_two.replace("_", "ˍ")+" - "+chips_tag.replace("_", "ˍ")}}}{{{chips_tag.replace("_", "ˍ")}}}$'
 
@@ -812,7 +828,7 @@ def do_2D_ratio_diff_plot(chips_data):
                                 ax_cx_01[0], fig, ax_cx_01[1], ax_cx_01[2], 'xx', chips_data.parser_args,
                                 label2, hide_cbar_label=False, hide_k_par_label=True, hide_k_perp_label=True)
 
-            plot_2D_on_ax_two_colour_bars(ratio_diff_xx, extent_xx, 
+            plot_2D_on_ax_two_colour_bars(ratio_diff_xx, extent_xx,
                                 ax_cx_02[0], fig, ax_cx_02[1], ax_cx_02[2], 'xx', chips_data.parser_args,
                                 'Ratio-Difference (R2-R1)', cmap='BlueRed', hide_cbar_label=False, hide_k_par_label=True, hide_k_perp_label=True)
 
@@ -824,12 +840,12 @@ def do_2D_ratio_diff_plot(chips_data):
                                 ax_cx_11[0], fig, ax_cx_11[1], ax_cx_11[2], 'yy', chips_data.parser_args,
                                 label2, hide_cbar_label=False, hide_k_perp_label=True)
 
-            plot_2D_on_ax_two_colour_bars(ratio_diff_yy, extent_yy, 
+            plot_2D_on_ax_two_colour_bars(ratio_diff_yy, extent_yy,
                                 ax_cx_12[0], fig, ax_cx_12[1], ax_cx_12[2], 'yy', chips_data.parser_args,
                                 'Ratio-Difference (R2-R1)', cmap='BlueRed', hide_cbar_label=False, hide_k_perp_label=True)
 
             # plt.tight_layout()
-            
+
             output_plot_name = f"{chips_data.parser_args.outputdir}/chips2D_xx+yy_" \
                             f"{chips_data.parser_args.out_label1}_" \
                             f"{chips_data.parser_args.out_label2}_ratio_diff.png"
@@ -853,7 +869,7 @@ def do_2D_ratio_diff_plot(chips_data):
             plot_2D_ratio_on_ax(ratio_diff_yy, extent_yy, axs[1, 2], fig, 'yy', chips_data.parser_args, hide_cbar_label=False, hide_k_par_label=False, hide_k_perp_label=True)
 
             plt.tight_layout()
-            
+
             output_plot_name = f"{chips_data.parser_args.outputdir}/chips2D_xx+yy_" \
                             f"{chips_data.parser_args.out_label1}_" \
                             f"{chips_data.parser_args.out_label2}_ratio_diff.png"
